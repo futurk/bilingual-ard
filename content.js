@@ -90,31 +90,42 @@ async function initializeExtension() {
     }
 }
 
-    function storeSubtitle(originalP) {
-        let text = originalP.innerText.trim().replace(/\n/g, ' '); // Replace new lines with spaces
-        if (!text) return;
+// Helper functions
+function storeSubtitle(originalP) {
+    let text = originalP.innerText.trim().replace(/\n/g, ' '); // Replace new lines with spaces
+    if (!text) return;
 
-        if (!translationCache.has(text)) {
-            translationCache.set(text, null); // Placeholder to avoid duplicate requests
-            fetchTranslation(text).then((translatedText) => {
-                if (translatedText) {
-                    translationCache.set(text, translatedText);
-                    checkAndShowSubtitles();
-                }
-            });
-        }
+    if (!translationCache.has(text)) {
+        translationCache.set(text, null); // Placeholder to avoid duplicate requests
+        fetchTranslation(text).then((translatedText) => {
+            if (translatedText) {
+                translationCache.set(text, translatedText);
+                checkAndShowSubtitles();
+            }
+        });
     }
+}
 
-    function checkAndShowSubtitles() {
+function checkAndShowSubtitles() {
+    try {
         const playPauseButton = document.querySelector(".ardplayer-button-playpause");
         const isPaused = playPauseButton && playPauseButton.classList.contains("ardplayer-icon-play");
         if (isPaused) {
             showStoredSubtitle();
         }
+    } catch (error) {
+        console.error("Error checking play/pause state:", error);
     }
+}
 
-    function showStoredSubtitle() {
-        document.querySelectorAll(".ardplayer-untertitel p").forEach((originalP) => {
+function showStoredSubtitle() {
+    try {
+        const subtitleElements = document.querySelectorAll(".ardplayer-untertitel p");
+        if (!subtitleElements.length) return;
+        
+        subtitleElements.forEach((originalP) => {
+            if (!originalP.parentNode) return; // Skip if element is detached
+            
             let text = originalP.innerText.trim().replace(/\n/g, ' ');
             let translatedText = translationCache.get(text);
             if (!translatedText) return;
@@ -126,42 +137,34 @@ async function initializeExtension() {
                 originalP.parentNode.insertBefore(translatedP, originalP); // Insert above original subtitle
             }
 
-            // Only log once when adding the translated text
-            // if (!translatedP.innerText) {
-            //     console.log(translatedText);
-            // }
-
             translatedP.innerText = translatedText;
             translatedP.style.display = "block";
         });
+    } catch (error) {
+        console.error("Error displaying subtitles:", error);
     }
+}
 
-    async function fetchTranslation(text) {
-        try {
-            const response = await fetch(
-                "https://translate.googleapis.com/translate_a/single?client=gtx&sl=de&tl=en&dt=t&q=" +
-                encodeURIComponent(text)
-            );
-            const result = await response.json();
-            let translatedText = result[0].map((item) => item[0]).join(" ");
+async function fetchTranslation(text) {
+    try {
+        const response = await fetch(
+            "https://translate.googleapis.com/translate_a/single?client=gtx&sl=de&tl=en&dt=t&q=" +
+            encodeURIComponent(text)
+        );
+        const result = await response.json();
+        let translatedText = result[0].map((item) => item[0]).join(" ");
 
-            // Convert text to sentence case (first letter capitalized, rest lowercase)
-            translatedText = translatedText
-                .toLowerCase()
-                .replace(/(^\w|\.\s*\w)/g, (match) => match.toUpperCase());
+        // Convert text to sentence case (first letter capitalized, rest lowercase)
+        translatedText = translatedText
+            .toLowerCase()
+            .replace(/(^\w|\.\s*\w)/g, (match) => match.toUpperCase());
 
-            return translatedText;
-        } catch (error) {
-            console.error("Translation error:", error);
-            return "";
-        }
+        return translatedText;
+    } catch (error) {
+        console.error("Translation error:", error);
+        return "";
     }
-
-    const observerPlayPause = new MutationObserver(checkAndShowSubtitles);
-    const playPauseButton = document.querySelector(".ardplayer-button-playpause");
-    if (playPauseButton) {
-        observerPlayPause.observe(playPauseButton, { attributes: true, attributeFilter: ["class"] });
-    }
+}
 
 // Navigation detection for SPA routing
 function setupNavigationDetection() {
