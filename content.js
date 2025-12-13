@@ -53,7 +53,8 @@ async function initializeExtension() {
                 if (mutation.addedNodes.length) {
                     mutation.addedNodes.forEach(async (node) => {
                         if (node.nodeType === 1 && node.matches(".ardplayer-untertitel p")) {
-                            const subtitleContainer = node.closest("[lang='de-DE']");
+                            const subtitleContainer = node.closest("[lang='de-DE'], [lang='de']");
+
                             if (!subtitleContainer) return; // Ensure subtitles are in German
 
                             if (!node.dataset.translated) {
